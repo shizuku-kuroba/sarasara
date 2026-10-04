@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {decodeText,combineText,languageDefaults,library,languages} from '../src/content-library.js';import {layout,defaults} from '../src/layout.js';
+test('English changes font and grid but never includes text in defaults',()=>{assert.equal(languageDefaults('en').grid,'ruled');assert.equal(languageDefaults('en').font,'Cormorant Garamond');assert.equal('text' in languageDefaults('en'),false);assert.equal(languageDefaults('ja').grid,'square');});
+test('UTF8 BOM and CRLF normalized; supplementary characters retained',()=>{assert.equal(decodeText(new TextEncoder().encode('\uFEFF你好\r\n𠮷').buffer),'你好\n𠮷');});
+test('UTF16 BOM detection',()=>{assert.equal(decodeText(Uint8Array.from([255,254,65,0,13,0,10,0,66,0]).buffer),'A\nB');});
+test('Big5 explicit decoding',()=>{assert.equal(decodeText(Uint8Array.from([0xa4,0xa4,0xa4,0xe5]).buffer,'big5'),'中文');});
+test('binary, malformed UTF8 and empty text rejected',()=>{for(const bytes of [[0,1,2],[255,250],[]])assert.throws(()=>decodeText(Uint8Array.from(bytes).buffer));});
+test('replacement append and overflow',()=>{assert.equal(combineText('甲','乙',true),'甲\n乙');assert.equal(combineText('甲','乙'),'乙');assert.throws(()=>combineText('字'.repeat(6000),'乙',true));});
+test('slanted grid uses whole text lines and horizontal layout',()=>{const l=layout({...defaults,language:'en',grid:'slant',direction:'vertical',text:'Hello world\nPractice daily'});assert.deepEqual(l.units,['Hello world','Practice daily']);assert.equal(l.vertical,false);assert.equal(l.capacity,l.rows);});
+test('library has unique IDs and valid languages; all entries fit limit',()=>{assert.equal(new Set(library.map(x=>x.id)).size,library.length);for(const item of library){assert.ok(languages[item.language]);assert.ok(item.text.length<=6000);assert.ok(item.author);assert.ok(item.rights);}});
+test('English blank and dotted paper retain words as complete lines',()=>{for(const grid of ['none','dots']){const l=layout({...defaults,language:'en',grid,text:'Keep words together'});assert.equal(l.units[0],'Keep words together');assert.equal(l.capacity,l.rows);}});
